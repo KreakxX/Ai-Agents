@@ -135,57 +135,59 @@ export const ChatWindow = React.memo(function ChatWindow({
     return [...before, ...newLines, ...after].join("\n");
   };
 
-  const smartReplace = (
-    originalCode: string,
-    oldCodeSnippet: string,
-    newCodeSnippet: string
-  ) => {
-    // Normalisiere Whitespace für bessere Matches
-    const normalize = (code: string) =>
-      code
-        .replace(/\s+/g, " ") // Mehrere Leerzeichen zu einem
-        .replace(/\s*{\s*/g, " { ") // Spaces um geschweifte Klammern
-        .replace(/\s*}\s*/g, " } ")
-        .replace(/\s*;\s*/g, "; ") // Spaces um Semikolons
-        .trim();
+  // Zeilen finden und dann gucken ob das geht und ansonsten halt mal gucken
 
-    const normalizedOriginal = normalize(originalCode);
-    const normalizedOld = normalize(oldCodeSnippet);
+  // const smartReplace = (
+  //   originalCode: string,
+  //   oldCodeSnippet: string,
+  //   newCodeSnippet: string
+  // ) => {
+  //   // Normalisiere Whitespace für bessere Matches
+  //   const normalize = (code: string) =>
+  //     code
+  //       .replace(/\s+/g, " ") // Mehrere Leerzeichen zu einem
+  //       .replace(/\s*{\s*/g, " { ") // Spaces um geschweifte Klammern
+  //       .replace(/\s*}\s*/g, " } ")
+  //       .replace(/\s*;\s*/g, "; ") // Spaces um Semikolons
+  //       .trim();
 
-    // Prüfe ob der alte Code im Original vorhanden ist
-    if (!normalizedOriginal.includes(normalizedOld)) {
-      // Fallback: Versuche direkten Match ohne Normalisierung
-      if (originalCode.includes(oldCodeSnippet.trim())) {
-        return originalCode.replace(oldCodeSnippet.trim(), newCodeSnippet);
-      }
+  //   const normalizedOriginal = normalize(originalCode);
+  //   const normalizedOld = normalize(oldCodeSnippet);
 
-      throw new Error(
-        `Code-Snippet nicht gefunden!\n\nSuchtext: ${oldCodeSnippet.substring(
-          0,
-          100
-        )}...`
-      );
-    }
-    const createFlexiblePattern = (code: string) => {
-      return code
-        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&") // Escape special chars
-        .replace(/\s+/g, "\\s*") // Flexible whitespace
-        .replace(/\\\{/g, "\\s*\\{\\s*") // Flexible braces
-        .replace(/\\\}/g, "\\s*\\}\\s*")
-        .replace(/\\\;/g, "\\s*;\\s*"); // Flexible semicolons
-    };
+  //   // Prüfe ob der alte Code im Original vorhanden ist
+  //   if (!normalizedOriginal.includes(normalizedOld)) {
+  //     // Fallback: Versuche direkten Match ohne Normalisierung
+  //     if (originalCode.includes(oldCodeSnippet.trim())) {
+  //       return originalCode.replace(oldCodeSnippet.trim(), newCodeSnippet);
+  //     }
 
-    const flexiblePattern = createFlexiblePattern(oldCodeSnippet);
-    const regex = new RegExp(flexiblePattern, "gs");
+  //     throw new Error(
+  //       `Code-Snippet nicht gefunden!\n\nSuchtext: ${oldCodeSnippet.substring(
+  //         0,
+  //         100
+  //       )}...`
+  //     );
+  //   }
+  //   const createFlexiblePattern = (code: string) => {
+  //     return code
+  //       .replace(/[.*+?^${}()|[\]\\]/g, "\\$&") // Escape special chars
+  //       .replace(/\s+/g, "\\s*") // Flexible whitespace
+  //       .replace(/\\\{/g, "\\s*\\{\\s*") // Flexible braces
+  //       .replace(/\\\}/g, "\\s*\\}\\s*")
+  //       .replace(/\\\;/g, "\\s*;\\s*"); // Flexible semicolons
+  //   };
 
-    const result = originalCode.replace(regex, newCodeSnippet);
+  //   const flexiblePattern = createFlexiblePattern(oldCodeSnippet);
+  //   const regex = new RegExp(flexiblePattern, "gs");
 
-    if (result === originalCode) {
-      throw new Error("Keine Änderungen durchgeführt - Pattern nicht gefunden");
-    }
+  //   const result = originalCode.replace(regex, newCodeSnippet);
 
-    return result;
-  };
+  //   if (result === originalCode) {
+  //     throw new Error("Keine Änderungen durchgeführt - Pattern nicht gefunden");
+  //   }
+
+  //   return result;
+  // };
 
   const writeFile = async (content: string, filePath: string) => {
     await writeTextFile(filePath, content, {});
