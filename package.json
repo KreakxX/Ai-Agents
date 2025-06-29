@@ -20,6 +20,8 @@
     "@radix-ui/react-switch": "^1.2.5",
     "@radix-ui/react-tooltip": "^1.2.7",
     "@tauri-apps/api": "^2.6.0",
+    "@tauri-apps/plugin-dialog": "^2.3.0",
+    "@tauri-apps/plugin-fs": "^2.4.0",
     "@tauri-apps/plugin-http": "^2.5.0",
     "@tauri-apps/plugin-opener": "^2",
     "@tauri-apps/plugin-store": "^2.3.0",
@@ -31,9 +33,17 @@
     "react-dom": "^18.3.1",
     "react-highlight": "^0.15.0",
     "react-router-dom": "^7.6.3",
-    "tailwind-merge": "^3.3.1"
+    "tailwind-merge": "^3.3.1",
+    "tree-sitter": "^0.25.0",
+    "tree-sitter-javascript": "^0.23.1",
+    "tree-sitter-python": "^0.23.6",
+    "tree-sitter-typescript": "^0.23.2"
   },
   "devDependencies": {
+    "@babel/core": "^7.27.7",
+    "@babel/generator": "^7.27.5",
+    "@babel/parser": "^7.27.7",
+    "@babel/traverse": "^7.27.7",
     "@tailwindcss/postcss": "^4.1.11",
     "@tauri-apps/cli": "^2",
     "@types/react": "^18.3.1",

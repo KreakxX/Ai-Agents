@@ -17,6 +17,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [dependencies]
 tauri = { version = "2", features = ["devtools"] }
 tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"  
+tauri-plugin-fs = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 pyo3 = { version = "0.20", features = ["auto-initialize", "extension-module"] }

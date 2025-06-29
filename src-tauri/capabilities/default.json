@@ -24,7 +24,26 @@
     "core:window:allow-set-always-on-top",
     "core:window:allow-set-skip-taskbar",
     "core:window:allow-request-user-attention",
+    "dialog:allow-open",
+      "fs:default",
+    "fs:allow-app-write",
+    "fs:allow-app-read",
+        "fs:allow-read-dir",
+        "fs:allow-read-file",
+    "fs:allow-write-file",
+    "fs:allow-app-write-recursive",
+    "fs:allow-app-read-recursive",
     {
+      "identifier": "fs:scope",
+      "allow": [
+       {
+          "path": "**"
+        }
+      ]
+    },
+    {
+
+    
       "identifier": "http:default",
       "allow": [
         {

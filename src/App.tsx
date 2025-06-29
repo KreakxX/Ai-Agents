@@ -80,6 +80,8 @@ export default function ChatApp() {
   const [activeChat, setActiveChat] = useState<string>("1");
   const [loading, setLoading] = useState<boolean>(false);
   const [typing, setTyping] = useState<boolean>(false);
+  const [selectedWorkspace, setSelectedWorkspace] = useState<string>("");
+  const [selectedFile, setSelectedFile] = useState<string>("");
   const [messages, setMessages] =
     useState<Record<string, Message[]>>(initialMessages);
 
@@ -140,17 +142,17 @@ export default function ChatApp() {
             prompt: content,
           });
 
-          const chatMessages = messages[activeChat] || [];
-          const formattedHistory = chatMessages
-            .map(
-              (msg) =>
-                `${msg.sender === "user" ? "User" : "Assistant"}: ${
-                  msg.content
-                }`
-            )
-            .join("\n");
-
-          const prompt = formattedHistory + `\nUser: ${content}\nAssistant:`;
+          // const chatMessages = messages[activeChat] || [];
+          // const systemPrompt =
+          //   "<|system|>\nYou are a helpful coding assistant.";
+          // const formattedMessages = chatMessages
+          //   .map((msg) =>
+          //     msg.sender === "user"
+          //       ? `<|user|>\n${msg.content}`
+          //       : `<|assistant|>\n${msg.content}`
+          //   )
+          //   .join("\n");
+          //  prompt = `${systemPrompt}\n${formattedMessages}\n<|user|>\n${content}\n<|assistant|>\n`;
 
           const response = await fetchFn(
             "http://localhost:11434/api/generate",
@@ -162,7 +164,7 @@ export default function ChatApp() {
               },
               body: JSON.stringify({
                 model: "deepseek-coder:6.7b",
-                prompt: prompt,
+                prompt: content,
                 stream: false,
               }),
             }
