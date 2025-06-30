@@ -37,7 +37,7 @@
     "tree-sitter": "^0.25.0",
     "tree-sitter-javascript": "^0.23.1",
     "tree-sitter-python": "^0.23.6",
-    "tree-sitter-typescript": "^0.23.2"
+    "ts-morph": "^26.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.27.7",
@@ -52,6 +52,7 @@
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.11",
+    "ts-node": "^10.9.2",
     "tw-animate-css": "^1.3.4",
     "typescript": "~5.6.2",
     "vite": "^6.0.3",

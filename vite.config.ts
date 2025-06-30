@@ -4,15 +4,11 @@ import tsconfigPaths from "vite-tsconfig-paths";
 
 const host = process.env.TAURI_DEV_HOST;
 
-// https://vitejs.dev/config/
 export default defineConfig(async () => ({
   plugins: [react(), tsconfigPaths()],
 
-  // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
-  //
-  // 1. prevent vite from obscuring rust errors
   clearScreen: false,
-  // 2. tauri expects a fixed port, fail if that port is not available
+
   server: {
     port: 3000,
     strictPort: true,
@@ -25,8 +21,16 @@ export default defineConfig(async () => ({
         }
       : undefined,
     watch: {
-      // 3. tell vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
+    },
+  },
+
+  build: {
+    rollupOptions: {
+      output: {
+        // Damit WASM-Dateien separat ausgeliefert werden (und nicht im JS-Bundle landen)
+        assetFileNames: "[name].[hash][extname]",
+      },
     },
   },
 }));

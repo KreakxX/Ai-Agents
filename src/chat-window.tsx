@@ -16,17 +16,15 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { open } from "@tauri-apps/plugin-dialog";
-
-import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
+// import { open } from "@tauri-apps/plugin-dialog";
+// import Parser from "tree-sitter";
+// import JavaScript from "tree-sitter-javascript";
+// import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 // @ts-ignore
 import Highlight from "react-highlight";
 import "highlight.js/styles/github-dark.css";
 import { Label } from "./components/ui/label";
 import { Switch } from "./components/ui/switch";
-import { parse } from "@babel/parser";
-import traverse from "@babel/traverse";
-import generate from "@babel/generator";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,7 +68,7 @@ export const ChatWindow = React.memo(function ChatWindow({
   typing,
 }: ChatWindowProps) {
   const [input, setInput] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null!);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const scrollToBottom = () => {
@@ -107,19 +105,6 @@ export const ChatWindow = React.memo(function ChatWindow({
     }
   };
 
-  const selectFile = async () => {
-    const selected = await open({
-      multiple: false,
-      filters: [
-        { name: "Code files", extensions: ["ts", "js", "py", "txt", "tsx"] },
-      ],
-    });
-
-    console.log(selected);
-    const content = await readTextFile(selected || "");
-    console.log(content);
-  };
-
   const replaceByLineRange = (
     code: string,
     startLine: number,
@@ -135,65 +120,249 @@ export const ChatWindow = React.memo(function ChatWindow({
     return [...before, ...newLines, ...after].join("\n");
   };
 
-  // Zeilen finden und dann gucken ob das geht und ansonsten halt mal gucken
+  const findCodeInLines = (code: string, newCode: string) => {
+    const lines = code.split("\n");
+    const newCodeLines = code.split("\n");
 
-  // const smartReplace = (
-  //   originalCode: string,
-  //   oldCodeSnippet: string,
-  //   newCodeSnippet: string
-  // ) => {
-  //   // Normalisiere Whitespace für bessere Matches
-  //   const normalize = (code: string) =>
-  //     code
-  //       .replace(/\s+/g, " ") // Mehrere Leerzeichen zu einem
-  //       .replace(/\s*{\s*/g, " { ") // Spaces um geschweifte Klammern
-  //       .replace(/\s*}\s*/g, " } ")
-  //       .replace(/\s*;\s*/g, "; ") // Spaces um Semikolons
-  //       .trim();
+    for (let i = 0; i <= lines.length - newCodeLines.length; i++) {
+      let match = true;
+      for (let j = 0; j < newCodeLines.length; j++) {
+        if (!lines[i + j].includes(newCodeLines[j])) {
+          match = false;
+          break;
+        }
+      }
+      if (match) {
+        return {
+          start: i,
+          end: i + newCodeLines.length - 1,
+        };
+      }
+    }
+  };
 
-  //   const normalizedOriginal = normalize(originalCode);
-  //   const normalizedOld = normalize(oldCodeSnippet);
+  // interface codeChange {
+  //   type: string;
+  //   change: string;
+  //   name: string;
+  //   position: string;
+  //   targetType: string;
+  // }
 
-  //   // Prüfe ob der alte Code im Original vorhanden ist
-  //   if (!normalizedOriginal.includes(normalizedOld)) {
-  //     // Fallback: Versuche direkten Match ohne Normalisierung
-  //     if (originalCode.includes(oldCodeSnippet.trim())) {
-  //       return originalCode.replace(oldCodeSnippet.trim(), newCodeSnippet);
-  //     }
+  // const selectFile = async () => {
+  //   const selected = await open({
+  //     multiple: false,
+  //     filters: [
+  //       { name: "Code files", extensions: ["ts", "js", "py", "txt", "tsx"] },
+  //     ],
+  //   });
 
-  //     throw new Error(
-  //       `Code-Snippet nicht gefunden!\n\nSuchtext: ${oldCodeSnippet.substring(
-  //         0,
-  //         100
-  //       )}...`
-  //     );
+  //   console.log(selected);
+  //   const content = await readTextFile(selected || "");
+  //   console.log(content);
+  //   const changes: codeChange[] = [
+  //     {
+  //       type: "replace", // Action: replace
+  //       name: "findNodeName", // Name der Funktion die ersetzt werden soll
+  //       targetType: "function_declaration", // Der AST-Node-Typ den wir suchen
+  //       position: "", // Add position property (empty string or appropriate value)
+  //       change: `const findNodeName = (node) => {
+  //     // Neue Implementation
+  //     console.log("Updated function");
+  //     return node.text;
+  //   };`,
+  //     },
+  //   ];
+  //   if (!selected) {
+  //     return;
   //   }
-  //   const createFlexiblePattern = (code: string) => {
-  //     return code
-  //       .replace(/[.*+?^${}()|[\]\\]/g, "\\$&") // Escape special chars
-  //       .replace(/\s+/g, "\\s*") // Flexible whitespace
-  //       .replace(/\\\{/g, "\\s*\\{\\s*") // Flexible braces
-  //       .replace(/\\\}/g, "\\s*\\}\\s*")
-  //       .replace(/\\\;/g, "\\s*;\\s*"); // Flexible semicolons
-  //   };
-
-  //   const flexiblePattern = createFlexiblePattern(oldCodeSnippet);
-  //   const regex = new RegExp(flexiblePattern, "gs");
-
-  //   const result = originalCode.replace(regex, newCodeSnippet);
-
-  //   if (result === originalCode) {
-  //     throw new Error("Keine Änderungen durchgeführt - Pattern nicht gefunden");
-  //   }
-
-  //   return result;
+  //   writeFile(content, selected, changes);
   // };
 
-  const writeFile = async (content: string, filePath: string) => {
-    await writeTextFile(filePath, content, {});
-    // patch ding angucekn babel für TS und JS
-    // Treesitter für alle aber deutlich komplizierter
-  };
+  // const parser = new Parser();
+  // parser.setLanguage(JavaScript as unknown as Parser.Language);
+
+  // const findNode = (
+  //   node: any,
+  //   targetType: string,
+  //   targetName?: string
+  // ): any => {
+  //   if (node.type == targetType) {
+  //     if (!targetName) {
+  //       return node; // found the node its the current one
+  //     }
+
+  //     const name = findNodeName(node);
+  //     if (name === targetName) {
+  //       // get Name and check if it matches if so return
+  //       return node;
+  //     }
+  //   }
+  //   for (let i = 0; i < node.childCount; i++) {
+  //     const found = findNode(node.child(i), targetType, targetName); // else search all the childs and return if found
+  //     if (found) {
+  //       return found;
+  //     }
+  //   }
+  //   return null;
+  // };
+
+  // const findNodeName = (node: any): string | null => {
+  //   switch (node.type) {
+  //     case "function_declaration":
+  //       return node.child(1)?.text || null; // function name
+  //     case "variable_declaration":
+  //       return node.child(1)?.child(0)?.text || null; // variable name
+  //     case "class_declaration":
+  //       return node.child(1)?.text || null; // class name
+  //     case "method_definition":
+  //       return node.child(0)?.text || null;
+  //     case "arrow_function":
+  //       // For const name = () => {}
+  //       return node.parent?.child(0)?.text || null;
+  //     default:
+  //       return null;
+  //   }
+  // };
+
+  // const replaceNode = (
+  //   Code: string,
+  //   tree: any,
+  //   CodeChange: codeChange
+  // ): string => {
+  //   const targetNode = findNode(
+  //     tree.rootNode,
+  //     CodeChange.targetType,
+  //     CodeChange.name
+  //   ); // finding target Node
+  //   if (!targetNode) {
+  //     return Code;
+  //   }
+  //   const before = Code.substring(0, targetNode.startIndex); // get all before from 0 to Startindex
+  //   const after = Code.substring(targetNode.endIndex); // get all after from endIndex to add
+  //   return before + CodeChange.change + after; // add the Code Change in there
+  // };
+
+  // const addNode = (Code: string, tree: any, CodeChange: codeChange) => {
+  //   const rootNode = tree.rootNode;
+
+  //   // Definiere erlaubte Position-Werte
+  //   const validPositions = [
+  //     "function_declaration",
+  //     "variable_declaration",
+  //     "class_declaration",
+  //     "import_statement",
+  //     "end",
+  //   ];
+
+  //   if (CodeChange.position && CodeChange.position !== "end") {
+  //     if (validPositions.includes(CodeChange.position)) {
+  //       // Finde die ERSTE Node vom gewünschten Typ
+  //       const targetNode = findNode(rootNode, CodeChange.position);
+  //       if (targetNode) {
+  //         const before = Code.substring(0, targetNode.endIndex);
+  //         const after = Code.substring(targetNode.endIndex);
+  //         return before + "\n\n" + CodeChange.change + after;
+  //       }
+  //     } else {
+  //       console.warn(`Invalid position: ${CodeChange.position}`);
+  //     }
+  //   }
+
+  //   // Fallback: Am Ende hinzufügen
+  //   let lastTopLevelNode = null;
+  //   for (let i = 0; i < rootNode.childCount; i++) {
+  //     const child = rootNode.child(i);
+  //     if (child.type !== "comment" && child.type !== "whitespace") {
+  //       lastTopLevelNode = child;
+  //     }
+  //   }
+
+  //   if (lastTopLevelNode) {
+  //     const before = Code.substring(0, lastTopLevelNode.endIndex);
+  //     const after = Code.substring(lastTopLevelNode.endIndex);
+  //     return before + "\n\n" + CodeChange.change + after;
+  //   }
+
+  //   return Code + "\n" + CodeChange.change;
+  // };
+
+  // const deleteNode = (
+  //   Code: string,
+  //   tree: any,
+  //   CodeChange: codeChange
+  // ): string => {
+  //   const targetNode = findNode(
+  //     tree.rootNode,
+  //     CodeChange.targetType,
+  //     CodeChange.name
+  //   ); // finding target Node
+
+  //   if (!targetNode) {
+  //     return Code;
+  //   }
+
+  //   let startIndex = targetNode.startIndex;
+  //   let endIndex = targetNode.endIndex;
+
+  //   if (startIndex > 0 && Code[startIndex - 1] === "\n") {
+  //     startIndex--;
+  //   }
+
+  //   if (endIndex < Code.length && Code[endIndex] === "\n") {
+  //     endIndex++;
+  //   }
+
+  //   const before = Code.substring(0, startIndex);
+  //   const after = Code.substring(endIndex);
+
+  //   return before + after; // just add the before and the after together
+  // };
+
+  // const addSingleCodeChange = (
+  //   fullCode: string,
+  //   CodeChange: codeChange
+  // ): string => {
+  //   const tree = parser.parse(fullCode);
+  //   if (CodeChange.type == "add") {
+  //     return addNode(fullCode, tree, CodeChange);
+  //   } else if (CodeChange.type == "replace") {
+  //     return replaceNode(fullCode, tree, CodeChange);
+  //   } else {
+  //     return deleteNode(fullCode, tree, CodeChange);
+  //   }
+  // };
+
+  // const parseAndReplaceCode = (
+  //   fullCode: string,
+  //   changes: codeChange[]
+  // ): string => {
+  //   let modifiedCode = fullCode;
+  //   const sortedChanges = [...changes].sort((a, b) => {
+  //     const tree = parser.parse(modifiedCode);
+  //     const nodeA = findNode(tree.rootNode, a.targetType, a.name);
+  //     const nodeB = findNode(tree.rootNode, b.targetType, b.name);
+
+  //     if (!nodeA && !nodeB) return 0;
+  //     if (!nodeA) return 1;
+  //     if (!nodeB) return -1;
+
+  //     return nodeB.startIndex - nodeA.startIndex;
+  //   });
+  //   for (const change of sortedChanges) {
+  //     modifiedCode = addSingleCodeChange(modifiedCode, change);
+  //   }
+  //   return modifiedCode;
+  // };
+
+  // const writeFile = async (
+  //   fullCode: string,
+  //   filePath: string,
+  //   changes: codeChange[]
+  // ) => {
+  //   const code = parseAndReplaceCode(fullCode, changes);
+  //   await writeTextFile(filePath, code, {});
+  // };
 
   if (!chat) {
     return (
@@ -249,7 +418,7 @@ export const ChatWindow = React.memo(function ChatWindow({
             <div className="relative">
               <Button
                 className="text-white/70 hover:text-white hover:bg-white/10"
-                onClick={selectFile}
+                // onClick={selectFile}
               >
                 <Workflow className="h-4 w-4"></Workflow>
               </Button>
