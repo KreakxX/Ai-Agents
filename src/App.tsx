@@ -27,8 +27,8 @@ export interface Chat {
   id: string;
   title: string;
   lastMessage: string;
-  timestamp: string;
-  unreadCount?: number;
+  huggingface?: boolean;
+
   icon?: string;
 }
 
@@ -44,33 +44,70 @@ export interface Message {
 const initialChats: Chat[] = [
   {
     id: "1",
-    title: "TinyLlama",
-    lastMessage: "How can I help you today?",
-    timestamp: "2 min ago",
-    unreadCount: 1,
+    title: "tinyllama",
+    lastMessage: "",
+
     icon: new URL("./assets/ollama.png", import.meta.url).href,
   },
   {
     id: "2",
     title: "SDXL",
-    lastMessage: "Let me help you with that React component",
-    timestamp: "1 hour ago",
+    lastMessage: "",
+
     icon: new URL("./assets/Stability.png", import.meta.url).href,
   },
   {
     id: "3",
-    title: "Deepseek",
-    lastMessage: "That's a great story idea! Let's develop it further.",
-    timestamp: "3 hours ago",
+    title: "deepseek-coder-v2:16b",
+    lastMessage: "",
+
     icon: new URL("./assets/Deepseek.png", import.meta.url).href,
   },
   {
     id: "4",
     title: "TTS",
-    lastMessage: "That's a great story idea! Let's develop it further.",
-    timestamp: "3 hours ago",
+    lastMessage: "",
     icon: new URL("./assets/XTTS.jpg", import.meta.url).href,
   },
+  {
+    id: "5",
+    title: "gemma:2b",
+    lastMessage: "",
+
+    icon: new URL("./assets/Gemma.jpg", import.meta.url).href,
+  },
+  // {
+  //   id: "6",
+  //   title: "Qwen/Qwen3-0.6B",
+  //   lastMessage: "",
+  //   huggingface: true,
+  //   icon: new URL("./assets/Qwen.png", import.meta.url).href,
+  // },
+  // {
+  //   id: "7",
+  //   title: "Qwen/Qwen3-4B",
+  //   lastMessage: "",
+  //   huggingface: true,
+  //   icon: new URL("./assets/Qwen.png", import.meta.url).href,
+  // },
+  {
+    id: "9",
+    title: "deepseek-coder-v2:16b",
+    lastMessage: "",
+    icon: new URL("./assets/deepseek.png", import.meta.url).href,
+  },
+];
+
+interface model {
+  name: string;
+  systemprompt: string;
+}
+
+const chatModels: model[] = [
+  { name: "tinyllama", systemprompt: "test" },
+  { name: "deepseek-coder:6.7b", systemprompt: "test" },
+  { name: "gemma:2b", systemprompt: "test" },
+  { name: "deepseek-coder-v2:16b", systemprompt: "test" },
 ];
 
 const initialMessages: Record<string, Message[]> = {};
@@ -80,8 +117,7 @@ export default function ChatApp() {
   const [activeChat, setActiveChat] = useState<string>("1");
   const [loading, setLoading] = useState<boolean>(false);
   const [typing, setTyping] = useState<boolean>(false);
-  const [selectedWorkspace, setSelectedWorkspace] = useState<string>("");
-  const [selectedFile, setSelectedFile] = useState<string>("");
+
   const [messages, setMessages] =
     useState<Record<string, Message[]>>(initialMessages);
 
@@ -90,7 +126,6 @@ export default function ChatApp() {
       id: Date.now().toString(),
       title: "New Chat",
       lastMessage: "Start a conversation...",
-      timestamp: "now",
     };
     setChats((prev) => [newChat, ...prev]);
     setActiveChat(newChat.id);
@@ -100,12 +135,50 @@ export default function ChatApp() {
     }));
   };
 
-  const sendMessage = async (content: string) => {
+  const generateTextResponse = async (
+    modelName: string,
+    systemPrompt: string,
+    content: string
+  ) => {
     try {
-      const newMessage: Message = {
+      setTyping(true);
+      const fetchFn = getFetch();
+
+      // const chatMessages = messages[activeChat] || [];
+      // const systemPrompt =
+      //   "<|system|>\nYou are a helpful coding assistant.";
+      // const formattedMessages = chatMessages
+      //   .map((msg) =>                                        // für Kontext etc
+      //     msg.sender === "user"
+      //       ? `<|user|>\n${msg.content}`
+      //       : `<|assistant|>\n${msg.content}`
+      //   )
+      //   .join("\n");
+      //  prompt = `${systemPrompt}\n${formattedMessages}\n<|user|>\n${content}\n<|assistant|>\n`;
+
+      let fullprompt = content;
+      const response = await fetchFn("http://localhost:11434/api/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Origin: "",
+        },
+        body: JSON.stringify({
+          model: modelName,
+          prompt: fullprompt,
+          stream: false,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const json = await response.json();
+      const responseText = json.response;
+      const newAnswer: Message = {
         id: Date.now().toString(),
-        content,
-        sender: "user",
+        content: responseText,
+        sender: "assistant",
         timestamp: new Date().toLocaleTimeString([], {
           hour: "2-digit",
           minute: "2-digit",
@@ -114,323 +187,196 @@ export default function ChatApp() {
 
       setMessages((prev) => ({
         ...prev,
-        [activeChat]: [...(prev[activeChat] || []), newMessage],
+        [activeChat]: [...(prev[activeChat] || []), newAnswer],
       }));
 
       setChats((prev) =>
         prev.map((chat) =>
           chat.id === activeChat
-            ? { ...chat, lastMessage: content, timestamp: "now" }
+            ? { ...chat, lastMessage: responseText, timestamp: "now" }
             : chat
         )
       );
-
-      let Chat = "";
-
-      chats.forEach((chat) => {
-        if (chat.id == activeChat) {
-          Chat = chat.title;
-        }
-      });
-
-      if (Chat == "Deepseek") {
-        try {
-          setTyping(true);
-          const fetchFn = getFetch();
-          console.log("Making request to Deepseek with:", {
-            model: "deepseek-coder:6.7b",
-            prompt: content,
-          });
-
-          // const chatMessages = messages[activeChat] || [];
-          // const systemPrompt =
-          //   "<|system|>\nYou are a helpful coding assistant.";
-          // const formattedMessages = chatMessages
-          //   .map((msg) =>
-          //     msg.sender === "user"
-          //       ? `<|user|>\n${msg.content}`
-          //       : `<|assistant|>\n${msg.content}`
-          //   )
-          //   .join("\n");
-          //  prompt = `${systemPrompt}\n${formattedMessages}\n<|user|>\n${content}\n<|assistant|>\n`;
-
-          const response = await fetchFn(
-            "http://localhost:11434/api/generate",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Origin: "",
-              },
-              body: JSON.stringify({
-                model: "deepseek-coder:6.7b",
-                prompt: content,
-                stream: false,
-              }),
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          const json = await response.json();
-          console.log("Response JSON:", json);
-
-          const responseText = json.response;
-
-          if (!responseText) {
-            throw new Error("No response text received from API");
-          }
-
-          const newAnswer: Message = {
-            id: Date.now().toString(),
-            content: responseText,
-            sender: "assistant",
-            timestamp: new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-          };
-
-          setMessages((prev) => ({
-            ...prev,
-            [activeChat]: [...(prev[activeChat] || []), newAnswer],
-          }));
-
-          setChats((prev) =>
-            prev.map((chat) =>
-              chat.id === activeChat
-                ? { ...chat, lastMessage: responseText, timestamp: "now" }
-                : chat
-            )
-          );
-        } catch (error) {
-          // Für HTTP-Fehler (response vorhanden)
-          if (error && typeof error === "object" && "status" in error) {
-            setMessages((prev) => ({
-              ...prev,
-              [activeChat]: [
-                ...(prev[activeChat] || []),
-                {
-                  id: Date.now().toString(),
-                  content: `HTTP-Fehler: ${error.status} ${
-                    "statusText" in error ? (error as any).statusText || "" : ""
-                  }`,
-                  sender: "assistant",
-                  timestamp: new Date().toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }),
-                },
-              ],
-            }));
-          } else {
-            // Für Netzwerkfehler oder andere Fehler
-
-            setMessages((prev) => ({
-              ...prev,
-              [activeChat]: [
-                ...(prev[activeChat] || []),
-                {
-                  id: Date.now().toString(),
-                  content: `Fehler: ${
-                    error instanceof Error
-                      ? error.message
-                      : JSON.stringify(error)
-                  }`,
-                  sender: "assistant",
-                  timestamp: new Date().toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }),
-                },
-              ],
-            }));
-          }
-        } finally {
-          setTyping(false);
-        }
-      } else if (Chat == "SDXL") {
-        try {
-          setTyping(true);
-          setLoading(true);
-          invoke("generate_image", { prompt: content })
-            .then((result) => {
-              const newAnswer: Message = {
-                id: Date.now().toString(),
-                content: "",
-                sender: "assistant",
-                timestamp: new Date().toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
-                image: result ? String(result) : "",
-              };
-              setMessages((prev) => ({
-                ...prev,
-                [activeChat]: [...(prev[activeChat] || []), newAnswer],
-              }));
-              setChats((prev) =>
-                prev.map((chat) =>
-                  chat.id === activeChat
-                    ? { ...chat, lastMessage: "Image Done", timestamp: "now" }
-                    : chat
-                )
-              );
-            })
-            .catch((error) => {
-              console.error("Error generating image:", error);
-            })
-            .finally(() => {
-              setLoading(false);
-              setTyping(false);
-            });
-        } catch (error) {
-          console.error("Error generating image:", error);
-        }
-      } else if (Chat == "TTS") {
-        try {
-          setTyping(true);
-          setLoading(true);
-          invoke("generate_audio", {
-            text: content,
-            speaker: "Damien Black",
-            language: "en",
-          })
-            .then((result) => {
-              const newAnswer: Message = {
-                id: Date.now().toString(),
-                content: "",
-                sender: "assistant",
-                timestamp: new Date().toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
-                audio: result ? String(result) : "",
-              };
-              setMessages((prev) => ({
-                ...prev,
-                [activeChat]: [...(prev[activeChat] || []), newAnswer],
-              }));
-              setChats((prev) =>
-                prev.map((chat) =>
-                  chat.id === activeChat
-                    ? { ...chat, lastMessage: "Image Done", timestamp: "now" }
-                    : chat
-                )
-              );
-            })
-            .catch((error) => {
-              console.error("Error generating image:", error);
-            })
-            .finally(() => {
-              setLoading(false);
-              setTyping(false);
-            });
-        } catch (error) {
-          console.error("Error generating image:", error);
-        }
-      } else {
-        try {
-          setTyping(true);
-          const fetchFn = getFetch();
-          console.log("Making request to TinyLlama with:", {
-            model: "tinyllama",
-            prompt: content,
-          });
-
-          const chatMessages = messages[activeChat] || [];
-          const formattedHistory = chatMessages
-            .map(
-              (msg) =>
-                `${msg.sender === "user" ? "User" : "Assistant"}: ${
-                  msg.content
-                }`
-            )
-            .join("\n");
-
-          const prompt = formattedHistory + `\nUser: ${content}\nAssistant:`;
-
-          const response = await fetchFn(
-            "http://localhost:11434/api/generate",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Origin: "",
-              },
-              body: JSON.stringify({
-                model: "tinyllama",
-                prompt: prompt,
-                stream: false,
-              }),
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-
-          const json = await response.json();
-
-          const responseText = json.response;
-
-          if (!responseText) {
-            throw new Error("No response text received from TinyLlama API");
-          }
-
-          const newAnswer: Message = {
-            id: Date.now().toString(),
-            content: responseText,
-            sender: "assistant",
-            timestamp: new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-          };
-
-          setMessages((prev) => ({
-            ...prev,
-            [activeChat]: [...(prev[activeChat] || []), newAnswer],
-          }));
-
-          setChats((prev) =>
-            prev.map((chat) =>
-              chat.id === activeChat
-                ? { ...chat, lastMessage: responseText, timestamp: "now" }
-                : chat
-            )
-          );
-        } catch (error) {
-          console.error("TinyLlama API Error:", error);
-
-          // Add error message to chat
-          const errorMessage: Message = {
-            id: Date.now().toString(),
-            content: `Error: ${
-              error instanceof Error ? error.message : "Unknown error occurred"
-            }`,
-            sender: "assistant",
-            timestamp: new Date().toLocaleTimeString([], {
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-          };
-
-          setMessages((prev) => ({
-            ...prev,
-            [activeChat]: [...(prev[activeChat] || []), errorMessage],
-          }));
-        } finally {
-          setTyping(false);
-        }
-      }
     } catch (error) {
       console.log(error);
-      throw error;
     } finally {
       setTyping(false);
+    }
+  };
+
+  const generateTextResponseHuggingFace = async (
+    prompt: string,
+    model_name: string
+  ) => {
+    try {
+      setTyping(true);
+      setLoading(true);
+      invoke("generate_text", { prompt: prompt, modelName: model_name })
+        .then((result) => {
+          const newAnswer: Message = {
+            id: Date.now().toString(),
+            content: String(result),
+            sender: "assistant",
+            timestamp: new Date().toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          };
+          setMessages((prev) => ({
+            ...prev,
+            [activeChat]: [...(prev[activeChat] || []), newAnswer],
+          }));
+          setChats((prev) =>
+            prev.map((chat) =>
+              chat.id === activeChat
+                ? { ...chat, lastMessage: "Image Done", timestamp: "now" }
+                : chat
+            )
+          );
+        })
+        .catch((error) => {
+          console.error("Error generating image:", error);
+        })
+        .finally(() => {
+          setLoading(false);
+          setTyping(false);
+        });
+    } catch (error) {
+      console.error("Error generating image:", error);
+    }
+  };
+
+  const sendMessage = async (content: string) => {
+    const models = chatModels;
+
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      content,
+      sender: "user",
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    };
+
+    setMessages((prev) => ({
+      ...prev,
+      [activeChat]: [...(prev[activeChat] || []), newMessage],
+    }));
+
+    setChats((prev) =>
+      prev.map((chat) =>
+        chat.id === activeChat
+          ? { ...chat, lastMessage: content, timestamp: "now" }
+          : chat
+      )
+    );
+    let Chat = "";
+    chats.forEach((chat) => {
+      if (chat.id == activeChat) {
+        Chat = chat.title;
+      }
+    });
+
+    if (Chat == "SDXL") {
+      try {
+        setTyping(true);
+        setLoading(true);
+        invoke("generate_image", { prompt: content })
+          .then((result) => {
+            const newAnswer: Message = {
+              id: Date.now().toString(),
+              content: "",
+              sender: "assistant",
+              timestamp: new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              image: result ? String(result) : "",
+            };
+            setMessages((prev) => ({
+              ...prev,
+              [activeChat]: [...(prev[activeChat] || []), newAnswer],
+            }));
+            setChats((prev) =>
+              prev.map((chat) =>
+                chat.id === activeChat
+                  ? { ...chat, lastMessage: "Image Done", timestamp: "now" }
+                  : chat
+              )
+            );
+          })
+          .catch((error) => {
+            console.error("Error generating image:", error);
+          })
+          .finally(() => {
+            setLoading(false);
+            setTyping(false);
+          });
+      } catch (error) {
+        console.error("Error generating image:", error);
+      }
+    } else if (Chat == "TTS") {
+      try {
+        setTyping(true);
+        setLoading(true);
+        invoke("generate_audio", {
+          text: content,
+          speaker: "Damien Black",
+          language: "en",
+        })
+          .then((result) => {
+            const newAnswer: Message = {
+              id: Date.now().toString(),
+              content: "",
+              sender: "assistant",
+              timestamp: new Date().toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
+              audio: result ? String(result) : "",
+            };
+            setMessages((prev) => ({
+              ...prev,
+              [activeChat]: [...(prev[activeChat] || []), newAnswer],
+            }));
+            setChats((prev) =>
+              prev.map((chat) =>
+                chat.id === activeChat
+                  ? { ...chat, lastMessage: "Image Done", timestamp: "now" }
+                  : chat
+              )
+            );
+          })
+          .catch((error) => {
+            console.error("Error generating image:", error);
+          })
+          .finally(() => {
+            setLoading(false);
+            setTyping(false);
+          });
+      } catch (error) {
+        console.error("Error generating image:", error);
+      }
+    } else {
+      const currentModel = models.find((m) =>
+        m.name.toLowerCase().includes(Chat.toLowerCase())
+      );
+      const chatModel = initialChats.find((m) =>
+        m.title.toLowerCase().includes(Chat.toLowerCase())
+      );
+
+      if (chatModel?.huggingface) {
+        generateTextResponseHuggingFace(content, chatModel.title);
+      }
+      if (!currentModel) {
+        return;
+      }
+      generateTextResponse(
+        currentModel.name,
+        currentModel.systemprompt,
+        content
+      );
     }
   };
 

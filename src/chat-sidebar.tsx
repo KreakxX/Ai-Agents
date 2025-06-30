@@ -36,8 +36,6 @@ export interface Chat {
   id: string;
   title: string;
   lastMessage: string;
-  timestamp: string;
-  unreadCount?: number;
   icon?: string;
 }
 
@@ -144,10 +142,12 @@ export function ChatSidebar({
                         )}
                       >
                         {chat.icon ? (
-                          <img
-                            src={chat.icon}
-                            className="h-8 w-8 rounded-full"
-                          ></img>
+                          <div className="rounded-full items-center justify-center">
+                            <img
+                              src={chat.icon}
+                              className="h-10 w-10 object-cover rounded-full"
+                            ></img>
+                          </div>
                         ) : (
                           <MessageSquare className="h-5 w-5 shrink-0" />
                         )}

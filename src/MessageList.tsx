@@ -1,11 +1,7 @@
-import React, {
-  memo,
-  useState,
-  useEffect,
-  useRef,
-  useMemo,
-  useCallback,
-} from "react";
+"use client";
+
+import type React from "react";
+import { memo, useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { ScrollArea } from "./components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "./components/ui/avatar";
 import { cn } from "./lib/utils";
@@ -19,8 +15,6 @@ export interface Chat {
   id: string;
   title: string;
   lastMessage: string;
-  timestamp: string;
-  unreadCount?: number;
   icon?: string;
 }
 
@@ -58,9 +52,7 @@ const MessageItem = memo(
       const codeBlocks = Array.from(
         message.content.matchAll(/```(?:\w*\n)?([\s\S]*?)```/g)
       ).map((m) => m[1].trim());
-
       const splitParts = message.content.split(/```(?:\w*\n)?[\s\S]*?```/g);
-
       const parts: { type: "text" | "code"; value: string }[] = [];
       splitParts.forEach((part, i) => {
         if (part.trim()) parts.push({ type: "text", value: part.trim() });
@@ -82,7 +74,7 @@ const MessageItem = memo(
     return (
       <div
         className={cn(
-          "flex gap-4 max-w-[85%]",
+          "flex gap-4 max-w-[85%] ",
           message.sender === "user" ? "ml-auto flex-row-reverse" : ""
         )}
       >
@@ -99,7 +91,7 @@ const MessageItem = memo(
               <User className="h-5 w-5" />
             ) : (
               <img
-                src={chat.icon}
+                src={chat.icon || "/placeholder.svg"}
                 className="h-8 w-8 rounded-full"
                 alt="Chat icon"
               />
@@ -116,12 +108,10 @@ const MessageItem = memo(
           {message.image && (
             <img
               className="h-100 w-100 rounded-lg"
-              src={message.image}
+              src={message.image || "/placeholder.svg"}
               alt=""
-              loading="lazy"
             />
           )}
-
           {message.audio && (
             <audio controls preload="metadata">
               {" "}
@@ -129,7 +119,6 @@ const MessageItem = memo(
               Dein Browser unterstützt das Audio-Element nicht.
             </audio>
           )}
-
           {contentParts.map((part, idx) =>
             part.type === "text" ? (
               <div
@@ -208,7 +197,6 @@ const MessageList = memo(function MessageList({
   );
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(true);
-
   const containerRef = useRef<HTMLDivElement>(null);
   const topSentinelRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -223,7 +211,6 @@ const MessageList = memo(function MessageList({
     if (isLoadingMore || visibleStartIndex <= 0) return;
 
     setIsLoadingMore(true);
-
     setTimeout(() => {
       const newStartIndex = Math.max(0, visibleStartIndex - 25);
       setVisibleStartIndex(newStartIndex);
@@ -261,8 +248,8 @@ const MessageList = memo(function MessageList({
 
     const target = e.target as HTMLDivElement;
     const { scrollTop, scrollHeight, clientHeight } = target;
-    const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
 
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
     setHasScrolledToBottom(isAtBottom);
   }, []);
 
@@ -270,13 +257,11 @@ const MessageList = memo(function MessageList({
     if (!hasScrolledToBottom || !messagesEndRef.current) return;
 
     isAutoScrolling.current = true;
-
     requestAnimationFrame(() => {
       messagesEndRef.current?.scrollIntoView({
         behavior: "smooth",
         block: "end",
       });
-
       setTimeout(() => {
         isAutoScrolling.current = false;
       }, 500);
@@ -286,8 +271,8 @@ const MessageList = memo(function MessageList({
   const hasMoreMessages = visibleStartIndex > 0;
 
   return (
-    <div className="flex-1 overflow-hidden">
-      <ScrollArea className="h-full" onScrollCapture={handleScroll}>
+    <div className="h-full overflow-hidden">
+      <ScrollArea className="h-full " onScrollCapture={handleScroll}>
         <div
           ref={containerRef}
           className="px-2 sm:px-4 md:px-8 py-4 space-y-4 sm:space-y-6 w-full max-w-full md:max-w-2xl lg:max-w-3xl xl:max-w-4xl mx-auto"
@@ -299,7 +284,6 @@ const MessageList = memo(function MessageList({
               style={{ marginTop: "-1px" }}
             />
           )}
-
           {hasMoreMessages && !isLoadingMore && (
             <div className="flex justify-center py-4">
               <button
@@ -343,6 +327,7 @@ const MessageList = memo(function MessageList({
               </div>
             </div>
           )}
+
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>

@@ -4,10 +4,10 @@ import torch
 import re
 import os
 from TTS.api import TTS
-from diffusers import FluxKontextPipeline
-from diffusers.utils import load_image
+from transformers import pipeline
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 
-# Load the pipeline with CPU fallback if CUDA not available
+
 try:
     pipe = DiffusionPipeline.from_pretrained(
         "stabilityai/stable-diffusion-xl-base-1.0",
@@ -19,6 +19,10 @@ try:
 except Exception as e:
     print(f"Error loading pipeline: {e}", file=sys.stderr)
     sys.exit(1)
+
+
+model_cache = {}
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def generate_image(prompt: str) -> str:
     try:
@@ -43,14 +47,34 @@ def generate_image(prompt: str) -> str:
     except Exception as e:
         print(f"Error generating image: {e}", file=sys.stderr)
         return ""
+    
+def loadModelsFromCache(model_name: str):
+    if model_name not in model_cache:
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            trust_remote_code=True,
+            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
+        ).to(device)
+        model_cache[model_name] = (model, tokenizer)
+    return model_cache[model_name]
+
+       
+
+def generateText(prompt: str, model_name: str) -> str:
+    try:
+        model,tokenizer = loadModelsFromCache(model_name)
+        inputs = tokenizer(prompt, return_tensors="pt").to(device)
+        output = model.generate(**inputs, max_new_tokens=128)
+        return tokenizer.decode(output[0], skip_special_tokens=True)
+    except Exception as e:
+        print("e")
 
 
     
 def generateAudio(text: str, speaker: str, language: str) -> str:
     try:
         tts = TTS("tts_models/multilingual/multi-dataset/xtts_v2", gpu=True)
-        
-        
         
         save_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'public', 'generated'))
         os.makedirs(save_dir, exist_ok=True)
@@ -73,21 +97,26 @@ def generateAudio(text: str, speaker: str, language: str) -> str:
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:
-        
         sys.exit(1)
     
     function_name = sys.argv[1]
     input_text = sys.argv[2]
-    try:
-        speaker = sys.argv[3]
-        language = sys.argv[4]
-    except:
-        print("No Speaker")
-    
+
     if function_name == "image":
         result = generate_image(input_text)
     elif function_name == "audio":
-        result = generateAudio(input_text,speaker,language)
+        if len(sys.argv) < 5:
+            print("Missing speaker or language", file=sys.stderr)
+            sys.exit(1)
+        speaker = sys.argv[3]
+        language = sys.argv[4]
+        result = generateAudio(input_text, speaker, language)
+    elif function_name == "text":
+        if len(sys.argv) < 4:
+            print("Missing model_name", file=sys.stderr)
+            sys.exit(1)
+        model_name = sys.argv[3]
+        result = generateText(input_text, model_name)
     else:
         sys.exit(1)
     
