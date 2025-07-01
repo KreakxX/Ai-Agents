@@ -125,7 +125,7 @@ export function ChatSidebar({
               Recent Chats
             </SidebarGroupLabel>
             <SidebarGroupContent className="flex-1 flex flex-col min-h-0">
-              <ScrollArea className="flex-1 h-full bg-transparent">
+              <ScrollArea className="flex-1 h-full bg-transparent [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <SidebarMenu className="px-2 mb-10">
                   {filteredChats.map((chat) => (
                     <SidebarMenuItem
@@ -136,7 +136,7 @@ export function ChatSidebar({
                         onClick={() => onChatSelect(chat.id)}
                         isActive={activeChat === chat.id}
                         className={cn(
-                          "group relative w-full justify-start p-4 h-auto rounded-lg transition-all",
+                          "group relative w-[90%] justify-start p-4 h-auto rounded-lg transition-all",
                           "hover:bg-white/10 text-white/90 hover:text-white backdrop-blur-sm",
                           "data-[active=true]:bg-white/20 data-[active=true]:text-white data-[active=true]:backdrop-blur-md"
                         )}

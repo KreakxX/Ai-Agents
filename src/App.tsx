@@ -96,6 +96,18 @@ const initialChats: Chat[] = [
     lastMessage: "",
     icon: new URL("./assets/deepseek.png", import.meta.url).href,
   },
+  {
+    id: "10",
+    title: "codellama:13b",
+    lastMessage: "",
+    icon: new URL("./assets/ollama.png", import.meta.url).href,
+  },
+  {
+    id: "12",
+    title: "qwen2.5vl:7b",
+    lastMessage: "",
+    icon: new URL("./assets/Qwen.png", import.meta.url).href,
+  },
 ];
 
 interface model {
@@ -108,6 +120,15 @@ const chatModels: model[] = [
   { name: "deepseek-coder:6.7b", systemprompt: "test" },
   { name: "gemma:2b", systemprompt: "test" },
   { name: "deepseek-coder-v2:16b", systemprompt: "test" },
+  { name: "codellama:13b", systemprompt: "test" },
+];
+
+const chatImageModels: model[] = [
+  {
+    name: "qwen2.5vl:7b",
+    systemprompt:
+      "Formatiere alle mathematischen Formeln in ```math ... ``` Blöcken.\n\n",
+  },
 ];
 
 const initialMessages: Record<string, Message[]> = {};
@@ -138,7 +159,8 @@ export default function ChatApp() {
   const generateTextResponse = async (
     modelName: string,
     systemPrompt: string,
-    content: string
+    content: string,
+    image?: string[]
   ) => {
     try {
       setTyping(true);
@@ -157,18 +179,36 @@ export default function ChatApp() {
       //  prompt = `${systemPrompt}\n${formattedMessages}\n<|user|>\n${content}\n<|assistant|>\n`;
 
       let fullprompt = content;
-      const response = await fetchFn("http://localhost:11434/api/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Origin: "",
-        },
-        body: JSON.stringify({
-          model: modelName,
-          prompt: fullprompt,
-          stream: false,
-        }),
-      });
+      let response: Response;
+
+      if (image) {
+        response = await fetchFn("http://localhost:11434/api/generate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Origin: "",
+          },
+          body: JSON.stringify({
+            model: modelName,
+            prompt: fullprompt,
+            stream: false,
+            images: image,
+          }),
+        });
+      } else {
+        response = await fetchFn("http://localhost:11434/api/generate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Origin: "",
+          },
+          body: JSON.stringify({
+            model: modelName,
+            prompt: fullprompt,
+            stream: false,
+          }),
+        });
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -246,7 +286,7 @@ export default function ChatApp() {
     }
   };
 
-  const sendMessage = async (content: string) => {
+  const sendMessage = async (content: string, img?: string[]) => {
     const models = chatModels;
 
     const newMessage: Message = {
@@ -362,21 +402,35 @@ export default function ChatApp() {
       const currentModel = models.find((m) =>
         m.name.toLowerCase().includes(Chat.toLowerCase())
       );
-      const chatModel = initialChats.find((m) =>
-        m.title.toLowerCase().includes(Chat.toLowerCase())
-      );
+      if (currentModel) {
+        const chatModel = initialChats.find((m) =>
+          m.title.toLowerCase().includes(Chat.toLowerCase())
+        );
 
-      if (chatModel?.huggingface) {
-        generateTextResponseHuggingFace(content, chatModel.title);
+        if (chatModel?.huggingface) {
+          generateTextResponseHuggingFace(content, chatModel.title);
+        }
+
+        generateTextResponse(
+          currentModel.name,
+          currentModel.systemprompt,
+          content
+        );
+      } else {
+        const currentModel = chatImageModels.find((m) =>
+          m.name.toLowerCase().includes(Chat.toLowerCase())
+        );
+        if (!currentModel) {
+          return;
+        }
+
+        generateTextResponse(
+          currentModel.name,
+          currentModel.systemprompt,
+          content,
+          img
+        );
       }
-      if (!currentModel) {
-        return;
-      }
-      generateTextResponse(
-        currentModel.name,
-        currentModel.systemprompt,
-        content
-      );
     }
   };
 

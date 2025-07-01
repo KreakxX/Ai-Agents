@@ -1,3 +1,4 @@
+use base64::{decode, encode};
 use std::process::Command;
 use tauri::async_runtime::spawn_blocking;
 
@@ -105,6 +106,41 @@ async fn generate_text(prompt: String, model_name: String) -> Result<String, Str
     result.unwrap_or_else(|e| Err(format!("Thread join error: {}", e)))
 }
 
+#[tauri::command]
+fn pdf_to_png(pdf_base64: String) -> Result<String, String> {
+    let pdf_bytes = decode(pdf_base64).map_err(|e| format!("Failed to decode base64: {}", e))?;
+
+    use pdfium_render::prelude::*;
+    let pdfium = Pdfium::new(Pdfium::bind_to_system_library().map_err(|e| e.to_string())?);
+    let doc = pdfium
+        .load_pdf_from_byte_vec(pdf_bytes, None)
+        .map_err(|e| e.to_string())?;
+    let page = doc.pages().get(0).map_err(|_| "No pages in PDF")?;
+
+    // Render to bitmap and get raw bytes directly
+    let bitmap = page
+        .render_with_config(&PdfRenderConfig::new().set_target_width(512))
+        .map_err(|e| e.to_string())?;
+
+    // Get raw RGBA bytes from the bitmap
+    let width = bitmap.width() as u32;
+    let height = bitmap.height() as u32;
+    let raw_bytes = bitmap.as_bytes(); // noch durch die Pages durch iterieren und dann mehrer Pictures machen
+
+    // Create a new image from raw bytes using your project's image crate
+    let img = image::RgbaImage::from_raw(width, height, raw_bytes.to_vec())
+        .ok_or("Failed to create image from raw bytes")?;
+
+    let dynamic_img = image::DynamicImage::ImageRgba8(img);
+
+    let mut buf = Vec::new();
+    dynamic_img
+        .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+        .map_err(|e| e.to_string())?;
+
+    // Convert the PNG bytes to base64 string
+    Ok(base64::encode(buf))
+}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -116,7 +152,8 @@ pub fn run() {
             greet,
             generate_image,
             generate_audio,
-            generate_text
+            generate_text,
+            pdf_to_png
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

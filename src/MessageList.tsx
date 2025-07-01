@@ -10,6 +10,8 @@ import { Button } from "./components/ui/button";
 // @ts-ignore
 import Highlight from "react-highlight";
 import "highlight.js/styles/github-dark.css";
+import katex from "katex";
+import "katex/dist/katex.min.css";
 
 export interface Chat {
   id: string;
@@ -52,11 +54,21 @@ const MessageItem = memo(
       const codeBlocks = Array.from(
         message.content.matchAll(/```(?:\w*\n)?([\s\S]*?)```/g)
       ).map((m) => m[1].trim());
+
+      const mathBlocks = [
+        ...Array.from(message.content.matchAll(/\\\\\[([\s\S]*?)\\\\\]/g)).map(
+          (m) => m[1].trim()
+        ),
+        ...Array.from(message.content.matchAll(/\\\[([\s\S]*?)\\\]/g)).map(
+          (m) => m[1].trim()
+        ),
+      ];
       const splitParts = message.content.split(/```(?:\w*\n)?[\s\S]*?```/g);
-      const parts: { type: "text" | "code"; value: string }[] = [];
+      const parts: { type: "text" | "code" | "math"; value: string }[] = [];
       splitParts.forEach((part, i) => {
         if (part.trim()) parts.push({ type: "text", value: part.trim() });
         if (codeBlocks[i]) parts.push({ type: "code", value: codeBlocks[i] });
+        if (mathBlocks[i]) parts.push({ type: "math", value: mathBlocks[i] });
       });
       return parts;
     }, [message.content]);
@@ -147,7 +159,7 @@ const MessageItem = memo(
                   </Button>
                 </div>
               </div>
-            ) : (
+            ) : part.type == "code" ? (
               <div key={idx} className="relative group/code">
                 <Highlight className="rounded-2xl px-6 py-4 overflow-x-auto bg-black/80 text-white border border-white/20 font-mono text-sm max-w-[80vw] sm:max-w-md md:max-w-lg">
                   {part.value}
@@ -165,6 +177,17 @@ const MessageItem = memo(
                   )}
                 </Button>
               </div>
+            ) : (
+              <div
+                key={idx}
+                className="rounded-2xl px-4 py-3 bg-white text-black text-base"
+                dangerouslySetInnerHTML={{
+                  __html: katex.renderToString(part.value, {
+                    throwOnError: false,
+                    displayMode: true,
+                  }),
+                }}
+              />
             )
           )}
           <span className="text-sm text-white/50 px-2">
