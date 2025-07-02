@@ -108,39 +108,46 @@ async fn generate_text(prompt: String, model_name: String) -> Result<String, Str
 }
 
 #[tauri::command]
-fn pdf_to_png(pdf_base64: String) -> Result<String, String> {
+fn pdf_to_png(pdf_base64: String) -> Result<Vec<String>, String> {
     let pdf_bytes = decode(pdf_base64).map_err(|e| format!("Failed to decode base64: {}", e))?;
-
     use pdfium_render::prelude::*;
     let pdfium = Pdfium::new(Pdfium::bind_to_system_library().map_err(|e| e.to_string())?);
     let doc = pdfium
         .load_pdf_from_byte_vec(pdf_bytes, None)
         .map_err(|e| e.to_string())?;
-    let page = doc.pages().get(0).map_err(|_| "No pages in PDF")?;
+    let mut images: Vec<String> = Vec::new();
 
-    // Render to bitmap and get raw bytes directly
-    let bitmap = page
-        .render_with_config(&PdfRenderConfig::new().set_target_width(512))
-        .map_err(|e| e.to_string())?;
+    for (index, page) in doc.pages().iter().enumerate() {
+        let index_u16: u16 = index
+            .try_into()
+            .map_err(|_| format!("Page index {} is too large", index))?;
+        if let Err(e) = doc.pages().get(index_u16) {
+            return Err(format!("Failed to get page {}: {}", index, e));
+        } else {
+            let page = doc.pages().get(index_u16).map_err(|_| "No pages in PDF")?;
 
-    // Get raw RGBA bytes from the bitmap
-    let width = bitmap.width() as u32;
-    let height = bitmap.height() as u32;
-    let raw_bytes = bitmap.as_bytes(); // noch durch die Pages durch iterieren und dann mehrer Pictures machen
+            let bitmap = page
+                .render_with_config(&PdfRenderConfig::new().set_target_width(512))
+                .map_err(|e| e.to_string())?;
 
-    // Create a new image from raw bytes using your project's image crate
-    let img = image::RgbaImage::from_raw(width, height, raw_bytes.to_vec())
-        .ok_or("Failed to create image from raw bytes")?;
+            let width = bitmap.width() as u32;
+            let height = bitmap.height() as u32;
+            let raw_bytes = bitmap.as_bytes(); // noch durch die Pages durch iterieren und dann mehrer Pictures machen
 
-    let dynamic_img = image::DynamicImage::ImageRgba8(img);
+            let img = image::RgbaImage::from_raw(width, height, raw_bytes.to_vec())
+                .ok_or("Failed to create image from raw bytes")?;
 
-    let mut buf = Vec::new();
-    dynamic_img
-        .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
-        .map_err(|e| e.to_string())?;
+            let dynamic_img = image::DynamicImage::ImageRgba8(img);
 
-    // Convert the PNG bytes to base64 string
-    Ok(base64::encode(buf))
+            let mut buf = Vec::new();
+            dynamic_img
+                .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageFormat::Png)
+                .map_err(|e| e.to_string())?;
+            let image_base64: String = encode(&buf);
+            images.push(image_base64);
+        }
+    }
+    Ok(images)
 }
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {

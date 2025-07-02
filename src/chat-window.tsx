@@ -97,16 +97,14 @@ export const ChatWindow = React.memo(function ChatWindow({
       console.log("step 1");
       const base64 = arrayBufferToBase64(arrayBuffer);
       console.log("step 2");
-      const pngbase64 = await invoke("pdf_to_png", { pdfBase64: base64 });
+      const pngbase64: [] = await invoke("pdf_to_png", { pdfBase64: base64 });
       console.log("step 3");
       console.log("step 4");
-      setImage((prev) => [...prev, pngbase64 as string]);
-      setContextImage((prev) => [
-        ...prev,
-        `data:image/png;base64,${pngbase64}`,
-      ]);
+      pngbase64.map((png) => {
+        setImage((prev) => [...prev, png]);
+        setContextImage((prev) => [...prev, `data:image/png;base64,${png}`]);
+      });
       setFileName((prev) => [...prev, file.name]);
-      console.log(pngbase64 as string);
     } else {
       const reader = new FileReader();
       reader.readAsDataURL(file);
