@@ -126,8 +126,7 @@ const chatModels: model[] = [
 const chatImageModels: model[] = [
   {
     name: "qwen2.5vl:7b",
-    systemprompt:
-      "Formatiere alle mathematischen Formeln in ```math ... ``` Blöcken.\n\n",
+    systemprompt: "und pack die Antwort in ```math und ende mit ```.",
   },
 ];
 
@@ -178,7 +177,7 @@ export default function ChatApp() {
       //   .join("\n");
       //  prompt = `${systemPrompt}\n${formattedMessages}\n<|user|>\n${content}\n<|assistant|>\n`;
 
-      let fullprompt = content;
+      let fullprompt = content + " " + systemPrompt;
       let response: Response;
 
       if (image) {

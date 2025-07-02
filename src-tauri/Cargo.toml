@@ -26,6 +26,7 @@ tauri-plugin-http = { version = "2.5.0", features = ["unsafe-headers"] }
 pdfium-render = { version = "0.8", features = ["image"] }
 base64 = "0.21"
 image = "0.24"
+tauri-plugin-store = "2"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

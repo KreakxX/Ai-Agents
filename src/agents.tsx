@@ -1,3 +1,6 @@
+import { load } from "@tauri-apps/plugin-store";
+import { useEffect, useState } from "react";
+
 import {
   Sidebar,
   SidebarContent,
@@ -32,7 +35,14 @@ export interface AIAgent {
   category: string;
   tags: string[];
   icon?: string;
+  model1: string;
+  model2?: string;
+  tools?: number[];
+  systemprompt: string;
 }
+//tool 1: image uplaod
+//tool 2: file edit
+//tool 3: export to pdf
 
 const aiAgents: AIAgent[] = [
   {
@@ -42,6 +52,10 @@ const aiAgents: AIAgent[] = [
     category: "Development",
     tags: ["Coding", "Low"],
     icon: "./assets/ollama.png",
+    model1: "deepseek-coder:6.7b",
+    tools: [2],
+    systemprompt:
+      "You are a coding assistant that helps with simple programming tasks.",
   },
   {
     id: "2",
@@ -50,22 +64,21 @@ const aiAgents: AIAgent[] = [
     category: "Development",
     tags: ["Coding", "High"],
     icon: "./assets/ollama.png",
+    model1: "deepseek-coder-v2:16b",
+    tools: [2],
+    systemprompt:
+      "You are a powerful coding assistant that helps with complex programming tasks.",
   },
   {
     id: "3",
-    name: "Image Gen",
-    description: "AI-powered image generation.",
+    name: "Homework Helper",
+    description: "AI assistant for homework and study help.",
     category: "Creative",
-    tags: ["Image", "Generation"],
+    tags: ["Homework", "Generation"],
     icon: "./assets/ollama.png",
-  },
-  {
-    id: "4",
-    name: "Voice Gen",
-    description: "AI-powered voice generation.",
-    category: "Creative",
-    tags: ["Voice", "Generation"],
-    icon: "./assets/ollama.png",
+    model1: "qwen2.5vl:7b",
+    tools: [1, 3],
+    systemprompt: "ne keine lust",
   },
 ];
 
@@ -73,6 +86,36 @@ const categories = ["All", "Development", "Creative"];
 
 export default function Market() {
   const navigate = useNavigate();
+  const [installed, setInstalled] = useState<AIAgent[]>([]);
+
+  useEffect(() => {
+    async function fetchInstalled() {
+      const store = await load("agents.json", { autoSave: false });
+      const agents = (await store.get<AIAgent[]>("installedAgents")) ?? [];
+      setInstalled(agents);
+    }
+    fetchInstalled();
+  }, []);
+
+  async function handleAdd(agent: AIAgent) {
+    const store = await load("agents.json", { autoSave: false });
+    const updated = [...installed, agent];
+    await store.set("installedAgents", updated);
+    await store.save();
+    setInstalled(updated);
+  }
+
+  async function handleRemove(agent: AIAgent) {
+    const store = await load("agents.json", { autoSave: false });
+    const updated = installed.filter((a) => a.id !== agent.id);
+    await store.set("installedAgents", updated);
+    await store.save();
+    setInstalled(updated);
+  }
+
+  function isInstalled(agent: AIAgent) {
+    return installed.some((a) => a.id === agent.id);
+  }
 
   return (
     <div className="h-screen w-full bg-transparent">
@@ -150,7 +193,13 @@ export default function Market() {
                       </h2>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {aiAgents.map((agent) => (
-                          <AgentCard key={agent.id} agent={agent} />
+                          <AgentCard
+                            key={agent.id}
+                            agent={agent}
+                            installed={isInstalled(agent)}
+                            onAdd={() => handleAdd(agent)}
+                            onRemove={() => handleRemove(agent)}
+                          />
                         ))}
                       </div>
                     </div>
@@ -167,9 +216,12 @@ export default function Market() {
 
 interface AgentCardProps {
   agent: AIAgent;
+  installed: boolean;
+  onAdd: () => void;
+  onRemove: () => void;
 }
 
-function AgentCard({ agent }: AgentCardProps) {
+function AgentCard({ agent, installed, onAdd, onRemove }: AgentCardProps) {
   return (
     <Card className="backdrop-blur-sm bg-white/10 border-white/20 text-white hover:bg-white/15 transition-all duration-200">
       <CardHeader className="pb-3">
@@ -211,12 +263,23 @@ function AgentCard({ agent }: AgentCardProps) {
           ))}
         </div>
         <div className="flex justify-end">
-          <Button
-            size="sm"
-            className="bg-white/20 text-white hover:bg-white/30 border-0"
-          >
-            Add
-          </Button>
+          {installed ? (
+            <Button
+              size="sm"
+              className="bg-red-500 text-white hover:bg-red-600 border-0"
+              onClick={onRemove}
+            >
+              Remove
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              className="bg-white/20 text-white hover:bg-white/30 border-0"
+              onClick={onAdd}
+            >
+              Add
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

@@ -52,23 +52,46 @@ const MessageItem = memo(
   }) => {
     const contentParts = useMemo(() => {
       const codeBlocks = Array.from(
-        message.content.matchAll(/```(?:\w*\n)?([\s\S]*?)```/g)
-      ).map((m) => m[1].trim());
+        message.content.matchAll(/```(?!math)(\w*\n)?([\s\S]*?)```/g)
+      ).map((m) => m[2].trim());
 
-      const mathBlocks = [
-        ...Array.from(message.content.matchAll(/\\\\\[([\s\S]*?)\\\\\]/g)).map(
-          (m) => m[1].trim()
-        ),
-        ...Array.from(message.content.matchAll(/\\\[([\s\S]*?)\\\]/g)).map(
-          (m) => m[1].trim()
-        ),
-      ];
-      const splitParts = message.content.split(/```(?:\w*\n)?[\s\S]*?```/g);
+      const mathBlocks = Array.from(
+        message.content.matchAll(/```math\s*([\s\S]*?)```/g)
+      ).map((m) => m[1]);
+
+      const splitParts = message.content.split(
+        /```(?:math\s*|(?!math)\w*\n?)(?:[\s\S]*?)```/g
+      );
+
       const parts: { type: "text" | "code" | "math"; value: string }[] = [];
       splitParts.forEach((part, i) => {
-        if (part.trim()) parts.push({ type: "text", value: part.trim() });
+        if (part.trim()) parts.push({ type: "text", value: part });
         if (codeBlocks[i]) parts.push({ type: "code", value: codeBlocks[i] });
-        if (mathBlocks[i]) parts.push({ type: "math", value: mathBlocks[i] });
+        if (mathBlocks[i]) {
+          let mathContent = mathBlocks[i];
+
+          mathContent = mathContent.replace(
+            /\$\$(.*?)\$\$/gs,
+            "\\quad\n$1\n\\quad"
+          );
+
+          mathContent = mathContent.replace(
+            /(?<!\$)\$(?!\$)(.*?)(?<!\$)\$(?!\$)/gs,
+            "\\quad $1 \\quad"
+          );
+
+          mathContent = mathContent.replace(
+            /\\\[(.*?)\\\]/gs,
+            "\\quad\n$1\n\\quad"
+          );
+
+          mathContent = mathContent.replace(
+            /\\\((.*?)\\\)/gs,
+            "\\quad $1 \\quad"
+          );
+
+          parts.push({ type: "math", value: mathContent });
+        }
       });
       return parts;
     }, [message.content]);
@@ -126,7 +149,6 @@ const MessageItem = memo(
           )}
           {message.audio && (
             <audio controls preload="metadata">
-              {" "}
               <source src={audioPath} type="audio/wav" />
               Dein Browser unterstützt das Audio-Element nicht.
             </audio>
@@ -159,7 +181,7 @@ const MessageItem = memo(
                   </Button>
                 </div>
               </div>
-            ) : part.type == "code" ? (
+            ) : part.type === "code" ? (
               <div key={idx} className="relative group/code">
                 <Highlight className="rounded-2xl px-6 py-4 overflow-x-auto bg-black/80 text-white border border-white/20 font-mono text-sm max-w-[80vw] sm:max-w-md md:max-w-lg">
                   {part.value}
@@ -177,18 +199,81 @@ const MessageItem = memo(
                   )}
                 </Button>
               </div>
-            ) : (
-              <div
-                key={idx}
-                className="rounded-2xl px-4 py-3 bg-white text-black text-base"
-                dangerouslySetInnerHTML={{
-                  __html: katex.renderToString(part.value, {
-                    throwOnError: false,
-                    displayMode: true,
-                  }),
-                }}
-              />
-            )
+            ) : part.type === "math" ? (
+              (() => {
+                let safeLatex = part.value;
+
+                if (
+                  safeLatex.includes("\\(") ||
+                  safeLatex.includes("\\)") ||
+                  safeLatex.includes("\\[") ||
+                  safeLatex.includes("\\]") ||
+                  safeLatex.includes("\\{") ||
+                  safeLatex.includes("\\}")
+                ) {
+                  safeLatex = safeLatex.replace(
+                    /\\\(|\\\)|\\\[|\\\]|\\\{|\\\}/g,
+                    ""
+                  );
+                }
+
+                if (!safeLatex.trim()) return null;
+
+                return (
+                  <div
+                    key={idx}
+                    className="rounded-2xl px-6 py-4 overflow-x-auto bg-white/20 text-white border border-white/20 font-mono text-sm max-w-[80vw] sm:max-w-md md:max-w-lg"
+                  >
+                    {safeLatex.split("\n").map((line, lineIdx) => {
+                      let formattedLine = line.trim();
+
+                      // Verbesserte Regex die LaTeX-Befehle und Mathematik respektiert
+                      formattedLine = formattedLine.replace(
+                        /(?<!\\)(?<!\\text\{[^}]*)\b([a-zA-ZäöüÄÖÜß]+(?:\s+[a-zA-ZäöüÄÖÜß]+)*)\b(?![}])/g,
+                        (match, p1, offset, string) => {
+                          // Prüfen ob wir uns innerhalb von LaTeX-Befehlen befinden
+                          const beforeMatch = string.substring(0, offset);
+
+                          // Nicht wrappen wenn:
+                          // - Es bereits ein LaTeX-Befehl ist (beginnt mit \)
+                          // - Es sich innerhalb von \text{} befindet
+                          // - Es sich innerhalb anderer LaTeX-Strukturen befindet
+                          if (
+                            match.startsWith("\\") ||
+                            (beforeMatch.includes("\\text{") &&
+                              !beforeMatch.includes("}")) ||
+                            (beforeMatch.includes("\\") &&
+                              beforeMatch.lastIndexOf("\\") >
+                                beforeMatch.lastIndexOf(" ")) ||
+                            /\\[a-zA-Z]+\{[^}]*$/.test(beforeMatch)
+                          ) {
+                            return match;
+                          }
+
+                          return `\\text{${match}}`;
+                        }
+                      );
+
+                      // LaTeX Spacing bereits im value enthalten
+                      const finalFormula = formattedLine;
+
+                      return (
+                        <div
+                          key={lineIdx}
+                          className={`${lineIdx > 0 ? "mt-4" : ""}`}
+                          dangerouslySetInnerHTML={{
+                            __html: katex.renderToString(finalFormula, {
+                              throwOnError: false,
+                              displayMode: true,
+                            }),
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                );
+              })()
+            ) : null
           )}
           <span className="text-sm text-white/50 px-2">
             {message.timestamp}
