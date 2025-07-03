@@ -165,35 +165,54 @@ export default function ChatApp() {
       setTyping(true);
       const fetchFn = getFetch();
 
-      // const chatMessages = messages[activeChat] || [];
-      // const systemPrompt =
-      //   "<|system|>\nYou are a helpful coding assistant.";
-      // const formattedMessages = chatMessages
-      //   .map((msg) =>                                        // für Kontext etc
-      //     msg.sender === "user"
-      //       ? `<|user|>\n${msg.content}`
-      //       : `<|assistant|>\n${msg.content}`
-      //   )
-      //   .join("\n");
-      //  prompt = `${systemPrompt}\n${formattedMessages}\n<|user|>\n${content}\n<|assistant|>\n`;
-
       let fullprompt = content + " " + systemPrompt;
-      let response: Response;
+      let response: Response = new Response();
+      let responses = [];
 
       if (image) {
-        response = await fetchFn("http://localhost:11434/api/generate", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Origin: "",
-          },
-          body: JSON.stringify({
-            model: modelName,
-            prompt: fullprompt,
-            stream: false,
-            images: image,
-          }),
-        });
+        content =
+          "Extrahiere alle Aufgaben und nötigen Kontext für die Aufgabe, also a), b) und den BENÖTIGTEN KONTEXT wie formeln und GEBE NUR DIE AUFGABEN UND KONTEXT ALS ANTWORT zurück";
+        console.log(image);
+        const results = [];
+
+        for (let i = 0; i < image.length; i++) {
+          const Image = image[i];
+          response = await fetchFn("http://localhost:11434/api/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Origin: "" },
+            body: JSON.stringify({
+              model: modelName,
+              prompt: content,
+              images: [Image],
+              stream: false,
+            }),
+          });
+          const json = await response.json();
+          results.push(json.response);
+        }
+        console.log(results);
+        console.log("----------------------");
+
+        for (let i = 0; i < results.length; i++) {
+          console.log(results[i]);
+          response = await fetchFn("http://localhost:11434/api/generate", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Origin: "",
+            },
+            body: JSON.stringify({
+              model: "qwen2-math:latest",
+              prompt:
+                results[i] +
+                " Lies alle Aufgaben und Löse alle Aufgaben vollständig, und gebe Alles im folgenden Format numeriert zurück: , Aufgabenstellung dann Rechenweg und zum Schluss das Ergebnis",
+
+              stream: false,
+            }),
+          });
+          const json = await response.json();
+          responses.push(json.response);
+        }
       } else {
         response = await fetchFn("http://localhost:11434/api/generate", {
           method: "POST",
@@ -212,11 +231,24 @@ export default function ChatApp() {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const json = await response.json();
-      const responseText = json.response;
+      let formattedResponse = "";
+      if (responses && responses.length > 0) {
+        formattedResponse = responses
+          .map((response) => `- ${response}`)
+          .join("\n------------------\n");
+      } else {
+        const json = await response.json();
+        formattedResponse = json.response;
+      }
+
+      // if(agent.math){
+      // responseText =  "```math" + responseText + " ```"
+      // }
+
+      formattedResponse = "```math" + formattedResponse + " ```";
       const newAnswer: Message = {
         id: Date.now().toString(),
-        content: responseText,
+        content: formattedResponse,
         sender: "assistant",
         timestamp: new Date().toLocaleTimeString([], {
           hour: "2-digit",
@@ -232,7 +264,7 @@ export default function ChatApp() {
       setChats((prev) =>
         prev.map((chat) =>
           chat.id === activeChat
-            ? { ...chat, lastMessage: responseText, timestamp: "now" }
+            ? { ...chat, lastMessage: formattedResponse, timestamp: "now" }
             : chat
         )
       );

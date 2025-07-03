@@ -35,14 +35,8 @@ export interface AIAgent {
   category: string;
   tags: string[];
   icon?: string;
-  model1: string;
-  model2?: string;
-  tools?: number[];
-  systemprompt: string;
+  requierdModel: string;
 }
-//tool 1: image uplaod
-//tool 2: file edit
-//tool 3: export to pdf
 
 const aiAgents: AIAgent[] = [
   {
@@ -52,10 +46,7 @@ const aiAgents: AIAgent[] = [
     category: "Development",
     tags: ["Coding", "Low"],
     icon: "./assets/ollama.png",
-    model1: "deepseek-coder:6.7b",
-    tools: [2],
-    systemprompt:
-      "You are a coding assistant that helps with simple programming tasks.",
+    requierdModel: "deepseek-coder:1.3b",
   },
   {
     id: "2",
@@ -64,21 +55,17 @@ const aiAgents: AIAgent[] = [
     category: "Development",
     tags: ["Coding", "High"],
     icon: "./assets/ollama.png",
-    model1: "deepseek-coder-v2:16b",
-    tools: [2],
-    systemprompt:
-      "You are a powerful coding assistant that helps with complex programming tasks.",
+    requierdModel: "deepseek-coder-v2:16b",
   },
+
   {
     id: "3",
-    name: "Homework Helper",
-    description: "AI assistant for homework and study help.",
+    name: "Mathematics Helper",
+    description: "AI assistant for mathematics tasks.",
     category: "Creative",
     tags: ["Homework", "Generation"],
     icon: "./assets/ollama.png",
-    model1: "qwen2.5vl:7b",
-    tools: [1, 3],
-    systemprompt: "ne keine lust",
+    requierdModel: "qwen2-math:7b",
   },
 ];
 
@@ -103,6 +90,7 @@ export default function Market() {
     await store.set("installedAgents", updated);
     await store.save();
     setInstalled(updated);
+    install_requierd_AI_Model();
   }
 
   async function handleRemove(agent: AIAgent) {
@@ -111,6 +99,26 @@ export default function Market() {
     await store.set("installedAgents", updated);
     await store.save();
     setInstalled(updated);
+  }
+
+  async function install_requierd_AI_Model() {
+    const response = await fetch("http://localhost:11434/api/tags");
+    const data = await response.json();
+    const installedModels = data.models.map((m: any) => m.name);
+
+    const store = await load("agents.json", { autoSave: false });
+    const installedAgents =
+      (await store.get<AIAgent[]>("installedAgents")) ?? [];
+
+    for (const agent of installedAgents) {
+      if (!installedModels.includes(agent.requierdModel)) {
+        await fetch("http://localhost:11434/api/pull", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ model: agent.requierdModel }),
+        });
+      }
+    }
   }
 
   function isInstalled(agent: AIAgent) {

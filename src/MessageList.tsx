@@ -209,12 +209,19 @@ const MessageItem = memo(
                   safeLatex.includes("\\[") ||
                   safeLatex.includes("\\]") ||
                   safeLatex.includes("\\{") ||
-                  safeLatex.includes("\\}")
+                  safeLatex.includes("\\}") ||
+                  safeLatex.includes("#")
                 ) {
-                  safeLatex = safeLatex.replace(
-                    /\\\(|\\\)|\\\[|\\\]|\\\{|\\\}/g,
-                    ""
-                  );
+                  safeLatex = safeLatex
+                    .replace(/\\\(|\\\)|\\\[|\\\]|\\\{|\\\}|#|\*/g, "")
+                    .replace(/→/g, "\\rightarrow")
+                    .replace(/←/g, "\\leftarrow")
+                    .replace(/↑/g, "\\uparrow")
+                    .replace(/↓/g, "\\downarrow")
+                    .replace(/↔/g, "\\leftrightarrow")
+                    .replace(/⇒/g, "\\Rightarrow")
+                    .replace(/⇐/g, "\\Leftarrow")
+                    .replace(/⇔/g, "\\Leftrightarrow");
                 }
 
                 if (!safeLatex.trim()) return null;
@@ -264,7 +271,7 @@ const MessageItem = memo(
                           dangerouslySetInnerHTML={{
                             __html: katex.renderToString(finalFormula, {
                               throwOnError: false,
-                              displayMode: true,
+                              displayMode: false,
                             }),
                           }}
                         />
